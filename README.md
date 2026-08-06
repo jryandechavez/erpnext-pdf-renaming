@@ -93,7 +93,8 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 - Exactly two pages
 - Maximum file size of 15 MB
 - Users can correct all extracted values before download
-- The review step shows separate, independently scrollable Page 1 and Page 2 previews
+- The review step keeps Page 1 on the left and Page 2 on the right in separate,
+  independently scrollable preview frames
 - Download stays disabled until SI, DR, and PO values are present
 
 ## Supported layout
