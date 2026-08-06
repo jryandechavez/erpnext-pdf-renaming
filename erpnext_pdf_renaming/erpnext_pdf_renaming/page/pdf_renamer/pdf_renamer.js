@@ -6,13 +6,15 @@ frappe.pages["pdf-renamer"].on_page_load = function (wrapper) {
   });
 
   const stylesheetId = "erpnext-pdf-renamer-styles";
-  if (!document.getElementById(stylesheetId)) {
-    const link = document.createElement("link");
+  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.4.3";
+  let link = document.getElementById(stylesheetId);
+  if (!link) {
+    link = document.createElement("link");
     link.id = stylesheetId;
     link.rel = "stylesheet";
-    link.href = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css";
     document.head.appendChild(link);
   }
+  if (link.getAttribute("href") !== stylesheetUrl) link.href = stylesheetUrl;
 
   new ERPNextPDFRenamer(page.body);
 };
