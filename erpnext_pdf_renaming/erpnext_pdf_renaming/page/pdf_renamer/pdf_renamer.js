@@ -138,8 +138,11 @@ class ERPNextPDFRenamer {
 
   async load_libraries() {
     if (!this.pdfjs) {
-      this.pdfjs = await import("/assets/erpnext_pdf_renaming/vendor/pdf.min.mjs");
-      this.pdfjs.GlobalWorkerOptions.workerSrc = "/assets/erpnext_pdf_renaming/vendor/pdf.worker.min.mjs";
+      // Frappe/Nginx serves .js with a JavaScript MIME type. Some production
+      // configurations serve .mjs as application/octet-stream, which browsers
+      // correctly refuse to import as a module.
+      this.pdfjs = await import("/assets/erpnext_pdf_renaming/vendor/pdf.min.js");
+      this.pdfjs.GlobalWorkerOptions.workerSrc = "/assets/erpnext_pdf_renaming/vendor/pdf.worker.min.js";
     }
     if (!window.Tesseract) {
       await new Promise((resolve, reject) => {
