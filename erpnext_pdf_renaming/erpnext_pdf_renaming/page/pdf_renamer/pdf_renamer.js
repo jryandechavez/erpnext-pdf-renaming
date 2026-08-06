@@ -33,7 +33,7 @@ class ERPNextPDFRenamer {
         <section class="renamer-hero">
           <div class="renamer-eyebrow">PRIVATE PDF TOOL</div>
           <h1>Rename invoices. <em>Keep files private.</em></h1>
-          <p>Extract the Charge Invoice, Delivery Receipt, and PO numbers from a two-page PDF. The document never leaves this browser.</p>
+          <p>Upload a two-page PDF, extract the Charge Invoice, Delivery Receipt, and PO numbers, then download it with the correct name.</p>
         </section>
 
         <section class="renamer-card">
@@ -62,7 +62,7 @@ class ERPNextPDFRenamer {
               <h2>Reading your document</h2>
               <p class="renamer-status">Opening your PDF…</p>
               <div class="renamer-progress"><span></span></div>
-              <small><b>0</b>% · The file stays on this device</small>
+              <small><b>0</b>% · No permanent server copy is created</small>
             </div>
           </div>
 
@@ -82,9 +82,9 @@ class ERPNextPDFRenamer {
         </section>
 
         <section class="renamer-trust">
-          <div><b>01</b><span><strong>Nothing is uploaded</strong>Your PDF never leaves this browser.</span></div>
+          <div><b>01</b><span><strong>Nothing is retained</strong>The temporary upload is discarded after OCR.</span></div>
           <div><b>02</b><span><strong>You stay in control</strong>Review every value before download.</span></div>
-          <div><b>03</b><span><strong>No copy is retained</strong>Reloading the page clears the document.</span></div>
+          <div><b>03</b><span><strong>No Frappe File</strong>No attachment or database record is created.</span></div>
         </section>
       </div>
     `);
@@ -136,92 +136,39 @@ class ERPNextPDFRenamer {
     this.root.querySelector(".renamer-process").classList.remove("hidden");
   }
 
-  async load_libraries() {
-    if (!this.pdfjs) {
-      await this.load_script(
-        "/assets/erpnext_pdf_renaming/vendor/pdf.min.js",
-        "pdfjsLib",
-        __("The PDF reader could not be loaded."),
-      );
-      this.pdfjs = window.pdfjsLib;
-      this.pdfjs.GlobalWorkerOptions.workerSrc = "/assets/erpnext_pdf_renaming/vendor/pdf.worker.min.js";
-    }
-    if (!window.Tesseract) {
-      await this.load_script(
-        "/assets/erpnext_pdf_renaming/vendor/tesseract.min.js",
-        "Tesseract",
-        __("The OCR engine could not be loaded."),
-      );
-    }
-  }
-
-  async load_script(source, globalName, errorMessage) {
-    if (window[globalName]) return;
-    await new Promise((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = source;
-      script.onload = () => window[globalName]
-        ? resolve()
-        : reject(new Error(errorMessage));
-      script.onerror = () => reject(new Error(errorMessage));
-      document.head.appendChild(script);
-    });
-  }
-
   async process() {
     if (!this.file) return;
     this.show_view("processing");
     this.set_step(2);
-    this.set_progress(3, __("Loading the private OCR engine…"));
-    let worker;
+    this.set_progress(15, __("Uploading the PDF temporarily…"));
     try {
-      await this.load_libraries();
-      const bytes = new Uint8Array(await this.file.arrayBuffer());
-      const pdf = await this.pdfjs.getDocument({ data: bytes }).promise;
-      if (pdf.numPages !== 2) throw new Error(__("This PDF has {0} page(s). Please upload exactly two pages.", [pdf.numPages]));
-
-      const pageTexts = [];
-      const canvases = [];
-      for (let pageNumber = 1; pageNumber <= 2; pageNumber += 1) {
-        this.set_progress(8 + pageNumber * 7, __("Preparing page {0} of 2…", [pageNumber]));
-        const page = await pdf.getPage(pageNumber);
-        const textContent = await page.getTextContent();
-        const selectableText = textContent.items.map((item) => item.str || "").join(" ");
-        if (/CHARGE.{0,120}?INVOICE|DELIVERY.{0,120}?RECEIPT/i.test(selectableText)) {
-          pageTexts.push(selectableText);
-        } else {
-          pageTexts.push("");
-          canvases.push(await this.render_ocr_crop(page));
+      const form = new FormData();
+      form.append("file", this.file, this.file.name);
+      const response = await fetch("/api/method/erpnext_pdf_renaming.api.process_pdf", {
+        method: "POST",
+        headers: { "X-Frappe-CSRF-Token": frappe.csrf_token },
+        credentials: "same-origin",
+        body: form,
+      });
+      this.set_progress(85, __("Checking the extracted numbers…"));
+      const payload = await response.json();
+      if (!response.ok || payload.exc) {
+        let message = payload.message || __("The PDF could not be processed.");
+        if (payload._server_messages) {
+          try {
+            const messages = JSON.parse(payload._server_messages).map((item) => JSON.parse(item).message);
+            message = messages.filter(Boolean).join(" ") || message;
+          } catch (_) {}
         }
+        throw new Error(message);
       }
-
-      if (canvases.length) {
-        worker = await Tesseract.createWorker("eng", undefined, {
-          workerPath: "/assets/erpnext_pdf_renaming/vendor/worker.min.js",
-          corePath: "/assets/erpnext_pdf_renaming/vendor/tesseract-core",
-          langPath: "/assets/erpnext_pdf_renaming/vendor/lang-data",
-          logger: (event) => {
-            if (event.status === "recognizing text") this.set_progress(25 + Math.round(event.progress * 27), __("Reading document numbers locally…"));
-          },
-        });
-        let canvasIndex = 0;
-        for (let pageIndex = 0; pageIndex < pageTexts.length; pageIndex += 1) {
-          if (pageTexts[pageIndex]) continue;
-          this.set_progress(28 + canvasIndex * 28, __("Reading page {0} of 2 locally…", [pageIndex + 1]));
-          const result = await worker.recognize(canvases[canvasIndex]);
-          pageTexts[pageIndex] = result.data.text;
-          canvasIndex += 1;
-        }
-      }
-
-      this.values = this.extract_values(pageTexts);
+      this.values = payload.message.values;
+      this.set_progress(100, __("Temporary upload discarded."));
       this.show_review();
     } catch (error) {
       this.show_view("upload");
       this.set_step(1);
       this.show_error(error.message || __("The PDF could not be processed."));
-    } finally {
-      if (worker) await worker.terminate();
     }
   }
 

@@ -10,13 +10,18 @@ The GitHub repository is named `erpnext-pdf-renaming`, but the Frappe/Python app
 name is `erpnext_pdf_renaming`. Always use the underscore name with
 `install-app`, `build --app`, and `list-apps`.
 
-## Privacy design
+## Temporary processing design
 
-All PDF rendering, OCR, review, and renaming happen in the browser. The app does not create a Frappe `File`, call a PDF-processing server endpoint, or retain document content. Reloading or closing the Desk page clears the selected PDF from memory.
+The browser sends the selected PDF directly to one authenticated Frappe API
+request. The server holds the request body only while extracting the document
+numbers and returns JSON. The app does not create a Frappe `File`, attachment,
+database record, or permanent PDF copy. The browser keeps the original PDF so it
+can download the same bytes under the reviewed filename.
 
-The bundled PDF reader uses a compatibility-targeted classic `.js` build. This
-avoids `.mjs` MIME configuration problems and modern-runtime failures on older
-Safari/WebKit clients commonly used with production ERPNext deployments.
+PDF rendering and OCR use Python dependencies installed automatically with the
+app (`PyMuPDF`, `RapidOCR`, and ONNX Runtime). There are no browser PDF workers,
+WebAssembly files, language-data assets, external OCR services, or manual
+system-package installs.
 
 ## Install
 

@@ -1,11 +1,15 @@
 [project]
 name = "erpnext_pdf_renaming"
 authors = [{ name = "Joeryan De Chavez" }]
-description = "Private, browser-only invoice PDF renaming page for ERPNext"
+description = "Temporary-processing invoice PDF renaming page for ERPNext"
 requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
-dependencies = []
+dependencies = [
+  "PyMuPDF>=1.24,<2",
+  "onnxruntime>=1.18,<2",
+  "rapidocr>=3.8,<4",
+]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -16,4 +20,3 @@ version = { attr = "erpnext_pdf_renaming.__version__" }
 
 [tool.setuptools.packages.find]
 include = ["erpnext_pdf_renaming*"]
-
