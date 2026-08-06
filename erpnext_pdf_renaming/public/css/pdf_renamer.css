@@ -1,0 +1,54 @@
+.pdf-renamer-app { --rn-ink:#17352f; --rn-green:#0f654f; --rn-mint:#e0f1e9; --rn-cream:#f5f1e8; --rn-paper:#fffdf9; --rn-red:#d95e4a; max-width:980px; margin:0 auto; padding:48px 24px 56px; color:var(--rn-ink); }
+.renamer-hero { text-align:center; max-width:760px; margin:0 auto 34px; }
+.renamer-eyebrow { color:var(--rn-red); font-size:11px; font-weight:800; letter-spacing:.18em; margin-bottom:15px; }
+.renamer-hero h1 { margin:0; font-family:Georgia,serif; font-size:clamp(38px,6vw,62px); line-height:1; letter-spacing:-.04em; font-weight:500; }
+.renamer-hero h1 em { color:var(--rn-green); font-weight:400; }
+.renamer-hero p { max-width:650px; margin:20px auto 0; color:var(--text-muted); font-size:15px; line-height:1.6; }
+.renamer-card { padding:28px; background:var(--rn-paper); border:1px solid var(--border-color); border-radius:20px; box-shadow:0 22px 55px rgba(34,62,53,.1); }
+.renamer-steps { display:flex; align-items:center; justify-content:center; margin-bottom:26px; }
+.renamer-steps>i { width:72px; height:1px; margin:0 12px; background:var(--border-color); }
+.renamer-step { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:12px; font-weight:600; }
+.renamer-step b { display:grid; place-items:center; width:25px; height:25px; border:1px solid var(--border-color); border-radius:50%; font-size:10px; }
+.renamer-step.active { color:var(--rn-ink); }
+.renamer-step.active b { color:#fff; background:var(--rn-green); border-color:var(--rn-green); }
+.renamer-step.done b { color:var(--rn-green); background:var(--rn-mint); border-color:transparent; }
+.renamer-dropzone { min-height:285px; display:flex; flex-direction:column; align-items:center; justify-content:center; border:1.5px dashed #9fb8af; border-radius:15px; background:linear-gradient(135deg,rgba(224,241,233,.3),rgba(255,255,255,.55)); cursor:pointer; transition:.2s; }
+.renamer-dropzone.is-dragging { border-color:var(--rn-green); background:var(--rn-mint); transform:scale(1.004); }
+.renamer-file-icon { position:relative; width:52px; height:64px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:9px; color:var(--rn-red); background:#fff; border:2px solid var(--rn-green); border-radius:6px; box-shadow:6px 7px 0 var(--rn-mint); }
+.renamer-file-icon:after { content:""; position:absolute; top:-2px; right:-2px; border-style:solid; border-width:0 15px 15px 0; border-color:transparent var(--rn-green) transparent transparent; }
+.renamer-file-icon span { font-size:10px; font-weight:800; }
+.renamer-dropzone h2,.renamer-processing h2 { margin:18px 0 5px; font-family:Georgia,serif; font-size:21px; }
+.renamer-dropzone p,.renamer-processing p { margin:0 0 16px; color:var(--text-muted); font-size:13px; }
+.renamer-dropzone small { margin-top:15px; color:var(--text-light); font-size:10px; }
+.renamer-process { width:100%; margin-top:14px; padding:12px; }
+.renamer-processing { min-height:320px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.renamer-scan-document { position:relative; width:60px; height:76px; padding:12px; overflow:hidden; background:#fff; border:2px solid var(--rn-green); border-radius:6px; box-shadow:7px 8px 0 var(--rn-mint); }
+.renamer-scan-document span { display:block; color:var(--rn-red); font-size:9px; font-weight:800; margin-bottom:12px; }
+.renamer-scan-document i { display:block; height:3px; margin:7px 0; background:#cad8d3; }
+.renamer-scan-line { position:absolute; left:4px; right:4px; height:2px; background:var(--rn-red); box-shadow:0 0 8px var(--rn-red); animation:renamer-scan 1.7s ease-in-out infinite alternate; }
+@keyframes renamer-scan { from{top:7px} to{top:66px} }
+.renamer-progress { width:min(430px,90%); height:7px; overflow:hidden; background:#e0e9e5; border-radius:99px; }
+.renamer-progress span { display:block; width:0; height:100%; background:var(--rn-green); transition:width .25s; }
+.renamer-processing small { margin-top:10px; color:var(--text-muted); font-size:11px; }
+.renamer-alert { padding:13px 15px; margin-bottom:20px; border-radius:9px; font-size:13px; }
+.renamer-error { margin:14px 0 0; color:#8b3328; background:#fbe5e1; }
+.renamer-result.is-success { color:#165c48; background:#e4f3eb; }
+.renamer-result.is-warning { color:#755815; background:#fff2c9; }
+.renamer-fields { display:grid; grid-template-columns:1fr 1fr 1.25fr; gap:14px; }
+.renamer-fields label { color:var(--text-muted); font-size:11px; font-weight:600; }
+.renamer-fields input { width:100%; margin-top:7px; padding:11px 12px; color:var(--rn-ink); background:var(--control-bg); border:1px solid var(--border-color); border-radius:8px; font-size:14px; font-weight:600; }
+.renamer-fields input.is-missing { border-color:#d5a044; background:#fffaf0; }
+.renamer-filename { margin:19px 0; padding:15px 17px; background:var(--subtle-fg); border-radius:9px; }
+.renamer-filename span { display:block; color:var(--text-light); font-size:9px; font-weight:700; letter-spacing:.13em; margin-bottom:7px; }
+.renamer-filename strong { overflow-wrap:anywhere; font-family:monospace; font-size:13px; }
+.renamer-actions { display:flex; justify-content:flex-end; gap:9px; }
+.renamer-trust { display:grid; grid-template-columns:repeat(3,1fr); margin-top:30px; }
+.renamer-trust>div { display:flex; gap:12px; padding:4px 24px; border-right:1px solid var(--border-color); }
+.renamer-trust>div:first-child { padding-left:4px; }
+.renamer-trust>div:last-child { border:0; }
+.renamer-trust b { color:var(--rn-red); font-family:Georgia,serif; font-size:12px; }
+.renamer-trust span { color:var(--text-muted); font-size:11px; line-height:1.4; }
+.renamer-trust strong { display:block; color:var(--rn-ink); font-size:12px; margin-bottom:3px; }
+@media(max-width:700px){.pdf-renamer-app{padding:32px 10px}.renamer-card{padding:20px 14px}.renamer-step span{display:none}.renamer-steps>i{width:46px}.renamer-fields{grid-template-columns:1fr}.renamer-actions{flex-direction:column-reverse}.renamer-actions .btn{width:100%}.renamer-trust{grid-template-columns:1fr;gap:16px}.renamer-trust>div,.renamer-trust>div:first-child{padding:0;border:0}}
+@media(prefers-reduced-motion:reduce){.renamer-scan-line{animation:none}}
+

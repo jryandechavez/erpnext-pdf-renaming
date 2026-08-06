@@ -1,0 +1,7 @@
+app_name = "erpnext_pdf_renaming"
+app_title = "ERPNext PDF Renaming"
+app_publisher = "Joeryan De Chavez"
+app_description = "Private, browser-only invoice PDF renaming page for ERPNext"
+app_email = ""
+app_license = "MIT"
+
