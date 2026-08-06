@@ -195,6 +195,9 @@ class ERPNextPDFRenamer {
           this.set_progress(percent, __("Uploading the PDF temporarily…"));
         }
       };
+      request.upload.onload = () => {
+        this.set_progress(45, __("Reading the two document headers…"));
+      };
       request.onerror = () => reject(new Error(__("The temporary upload could not reach ERPNext.")));
       request.onload = () => {
         let payload;

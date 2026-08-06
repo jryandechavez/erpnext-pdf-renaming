@@ -104,3 +104,9 @@ Charge Invoice and Delivery Receipt layout. The PO is cross-checked across both
 pages when OCR finds it twice. If the general OCR pass misses the red Charge
 Invoice serial, the server performs a second high-resolution pass over its
 expected top-right document area.
+
+For normal scans, OCR is limited to the document header at 180 DPI and skips
+orientation classification because the supported two-page layout is upright.
+This substantially reduces processing time while preserving SI, DR, and PO
+accuracy. The larger 320 DPI pass runs only when the Charge Invoice serial is
+still missing.

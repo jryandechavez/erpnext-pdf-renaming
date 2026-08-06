@@ -68,16 +68,16 @@ def process_pdf() -> dict:
 
             rect = page.rect
             clip = pymupdf.Rect(
-                rect.x0 + rect.width * 0.08,
-                rect.y0 + rect.height * 0.06,
-                rect.x1 - rect.width * 0.08,
-                rect.y0 + rect.height * 0.58,
+                rect.x0 + rect.width * 0.22,
+                rect.y0 + rect.height * 0.12,
+                rect.x1 - rect.width * 0.06,
+                rect.y0 + rect.height * 0.46,
             )
-            image = page.get_pixmap(dpi=220, colorspace=pymupdf.csRGB, clip=clip, alpha=False)
+            image = page.get_pixmap(dpi=180, colorspace=pymupdf.csRGB, clip=clip, alpha=False)
             # ONNX sessions are reused within each web worker. Serialize calls
             # to avoid overlapping mutable OCR pipeline state under gevent.
             with _engine_lock:
-                result = engine(image.tobytes("png"))
+                result = engine(image.tobytes("png"), use_cls=False)
             page_texts.append(" ".join(result.txts or ()))
 
         values = extract_values(page_texts)
@@ -116,7 +116,7 @@ def _read_charge_serial(page, engine) -> str:
     )
     image = page.get_pixmap(dpi=320, colorspace=pymupdf.csRGB, clip=clip, alpha=False)
     with _engine_lock:
-        result = engine(image.tobytes("png"))
+        result = engine(image.tobytes("png"), use_cls=False)
 
     translations = str.maketrans({"O": "0", "D": "0", "I": "1", "L": "1"})
     lines = [str(line).upper() for line in (result.txts or ())]
