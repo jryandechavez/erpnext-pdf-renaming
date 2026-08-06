@@ -14,8 +14,9 @@ name is `erpnext_pdf_renaming`. Always use the underscore name with
 
 All PDF rendering, OCR, review, and renaming happen in the browser. The app does not create a Frappe `File`, call a PDF-processing server endpoint, or retain document content. Reloading or closing the Desk page clears the selected PDF from memory.
 
-The bundled JavaScript modules use `.js` asset URLs for compatibility with
-production Frappe/Nginx installations that do not register an `.mjs` MIME type.
+The bundled PDF reader uses a compatibility-targeted classic `.js` build. This
+avoids `.mjs` MIME configuration problems and modern-runtime failures on older
+Safari/WebKit clients commonly used with production ERPNext deployments.
 
 ## Install
 

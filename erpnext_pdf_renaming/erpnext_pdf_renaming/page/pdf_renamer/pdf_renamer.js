@@ -138,21 +138,34 @@ class ERPNextPDFRenamer {
 
   async load_libraries() {
     if (!this.pdfjs) {
-      // Frappe/Nginx serves .js with a JavaScript MIME type. Some production
-      // configurations serve .mjs as application/octet-stream, which browsers
-      // correctly refuse to import as a module.
-      this.pdfjs = await import("/assets/erpnext_pdf_renaming/vendor/pdf.min.js");
+      await this.load_script(
+        "/assets/erpnext_pdf_renaming/vendor/pdf.min.js",
+        "pdfjsLib",
+        __("The PDF reader could not be loaded."),
+      );
+      this.pdfjs = window.pdfjsLib;
       this.pdfjs.GlobalWorkerOptions.workerSrc = "/assets/erpnext_pdf_renaming/vendor/pdf.worker.min.js";
     }
     if (!window.Tesseract) {
-      await new Promise((resolve, reject) => {
-        const script = document.createElement("script");
-        script.src = "/assets/erpnext_pdf_renaming/vendor/tesseract.min.js";
-        script.onload = resolve;
-        script.onerror = () => reject(new Error(__("The OCR engine could not be loaded.")));
-        document.head.appendChild(script);
-      });
+      await this.load_script(
+        "/assets/erpnext_pdf_renaming/vendor/tesseract.min.js",
+        "Tesseract",
+        __("The OCR engine could not be loaded."),
+      );
     }
+  }
+
+  async load_script(source, globalName, errorMessage) {
+    if (window[globalName]) return;
+    await new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = source;
+      script.onload = () => window[globalName]
+        ? resolve()
+        : reject(new Error(errorMessage));
+      script.onerror = () => reject(new Error(errorMessage));
+      document.head.appendChild(script);
+    });
   }
 
   async process() {
