@@ -144,15 +144,10 @@ class ERPNextPDFRenamer {
     try {
       const form = new FormData();
       form.append("file", this.file, this.file.name);
-      const response = await fetch("/api/method/erpnext_pdf_renaming.api.process_pdf", {
-        method: "POST",
-        headers: { "X-Frappe-CSRF-Token": frappe.csrf_token },
-        credentials: "same-origin",
-        body: form,
-      });
+      const response = await this.upload_pdf(form);
       this.set_progress(85, __("Checking the extracted numbers…"));
-      const payload = await response.json();
-      if (!response.ok || payload.exc) {
+      const payload = response.payload;
+      if (response.status < 200 || response.status >= 300 || payload.exc) {
         let message = payload.message || __("The PDF could not be processed.");
         if (payload._server_messages) {
           try {
@@ -170,6 +165,34 @@ class ERPNextPDFRenamer {
       this.set_step(1);
       this.show_error(error.message || __("The PDF could not be processed."));
     }
+  }
+
+  upload_pdf(form) {
+    return new Promise((resolve, reject) => {
+      const request = new XMLHttpRequest();
+      request.open("POST", "/api/method/erpnext_pdf_renaming.api.process_pdf", true);
+      if (typeof frappe.csrf_token === "string" && frappe.csrf_token) {
+        request.setRequestHeader("X-Frappe-CSRF-Token", frappe.csrf_token);
+      }
+      request.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percent = 15 + Math.round((event.loaded / event.total) * 25);
+          this.set_progress(percent, __("Uploading the PDF temporarily…"));
+        }
+      };
+      request.onerror = () => reject(new Error(__("The temporary upload could not reach ERPNext.")));
+      request.onload = () => {
+        let payload;
+        try {
+          payload = JSON.parse(request.responseText || "{}");
+        } catch (_) {
+          reject(new Error(__("ERPNext returned an unreadable response.")));
+          return;
+        }
+        resolve({ status: request.status, payload });
+      };
+      request.send(form);
+    });
   }
 
   async render_ocr_crop(page) {
