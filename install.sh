@@ -128,10 +128,10 @@ if ! bench --site "$SITE_NAME" list-apps --format text | grep -qxF "$APP_NAME"; 
   bench --site "$SITE_NAME" install-app "$APP_NAME"
 else
   echo "$APP_NAME is already installed on $SITE_NAME"
+  bench --site "$SITE_NAME" reload-doc erpnext_pdf_renaming page pdf_renamer
 fi
 
-echo "[6/7] Migrating and clearing cache"
-bench --site "$SITE_NAME" migrate
+echo "[6/7] Clearing site cache"
 bench --site "$SITE_NAME" clear-cache
 
 echo "[7/7] Restarting Bench"

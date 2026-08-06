@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import re
 from threading import Lock
 
@@ -49,7 +50,13 @@ def process_pdf() -> dict:
 
         engine = _get_engine()
         page_texts = []
+        previews = []
         for page in document:
+            preview = page.get_pixmap(dpi=110, colorspace=pymupdf.csRGB, alpha=False)
+            previews.append(
+                "data:image/jpeg;base64,"
+                + base64.b64encode(preview.tobytes("jpeg")).decode("ascii")
+            )
             selectable = page.get_text("text") or ""
             if re.search(
                 r"CHARGE.{0,120}?INVOICE|DELIVERY.{0,120}?RECEIPT",
@@ -80,7 +87,11 @@ def process_pdf() -> dict:
                     values["si"] = _read_charge_serial(page, engine)
                     if values["si"]:
                         break
-        return {"values": values, "complete": all(values.values())}
+        return {
+            "values": values,
+            "complete": all(values.values()),
+            "previews": previews,
+        }
     except frappe.ValidationError:
         raise
     except Exception:

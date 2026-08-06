@@ -63,7 +63,6 @@ grep -qxF erpnext_pdf_renaming sites/apps.txt || \
   printf '%s\n' erpnext_pdf_renaming >> sites/apps.txt
 
 bench --site your-site.example install-app erpnext_pdf_renaming
-bench --site your-site.example migrate
 bench build --app erpnext_pdf_renaming
 bench --site your-site.example clear-cache
 bench restart
@@ -82,7 +81,6 @@ grep -qxF erpnext_pdf_renaming sites/apps.txt || \
   printf '%s\n' erpnext_pdf_renaming >> sites/apps.txt
 bench build --app erpnext_pdf_renaming
 bench --site your-site.example install-app erpnext_pdf_renaming
-bench --site your-site.example migrate
 bench --site your-site.example clear-cache
 bench restart
 ```
@@ -95,7 +93,7 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 - Exactly two pages
 - Maximum file size of 15 MB
 - Users can correct all extracted values before download
-- The review step shows a scrollable preview of both uploaded pages
+- The review step shows separate, independently scrollable Page 1 and Page 2 previews
 - Download stays disabled until SI, DR, and PO values are present
 
 ## Supported layout

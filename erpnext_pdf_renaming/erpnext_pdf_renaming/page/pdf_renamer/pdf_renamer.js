@@ -21,7 +21,7 @@ class ERPNextPDFRenamer {
   constructor(container) {
     this.container = container;
     this.file = null;
-    this.preview_url = null;
+    this.previews = [];
     this.values = { si: "", dr: "", po: "" };
     this.pdfjs = null;
     this.render();
@@ -71,8 +71,11 @@ class ERPNextPDFRenamer {
             <div class="renamer-alert renamer-result" role="status"></div>
             <div class="renamer-review-grid">
               <div class="renamer-preview">
-                <div><strong>Document preview</strong><span>Scroll to review both pages</span></div>
-                <iframe title="Uploaded PDF preview"></iframe>
+                <div><strong>Document preview</strong><span>Review each page independently</span></div>
+                <div class="renamer-preview-pages">
+                  <figure><figcaption>Page 1</figcaption><div><img data-preview="0" alt="Preview of uploaded PDF page 1"></div></figure>
+                  <figure><figcaption>Page 2</figcaption><div><img data-preview="1" alt="Preview of uploaded PDF page 2"></div></figure>
+                </div>
               </div>
               <div class="renamer-review-form">
                 <div class="renamer-fields">
@@ -138,9 +141,7 @@ class ERPNextPDFRenamer {
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) return this.show_error(__("Please choose a PDF file."));
     if (file.size > 15 * 1024 * 1024) return this.show_error(__("The PDF must be 15 MB or smaller."));
-    if (this.preview_url) URL.revokeObjectURL(this.preview_url);
     this.file = file;
-    this.preview_url = URL.createObjectURL(file);
     this.dropzone.querySelector("h2").textContent = file.name;
     this.dropzone.querySelector("p").textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · Ready to process`;
     this.dropzone.querySelector(".renamer-choose").textContent = __("Choose another file");
@@ -169,6 +170,7 @@ class ERPNextPDFRenamer {
         throw new Error(message);
       }
       this.values = payload.message.values;
+      this.previews = payload.message.previews || [];
       this.set_progress(100, __("Temporary upload discarded."));
       this.show_review();
     } catch (error) {
@@ -264,7 +266,9 @@ class ERPNextPDFRenamer {
   show_review() {
     this.show_view("review");
     this.set_step(3);
-    this.root.querySelector(".renamer-preview iframe").src = this.preview_url || "about:blank";
+    this.root.querySelectorAll("[data-preview]").forEach((image) => {
+      image.src = this.previews[Number(image.dataset.preview)] || "";
+    });
     Object.entries(this.values).forEach(([field, value]) => {
       const input = this.root.querySelector(`[data-field="${field}"]`);
       input.value = value;
@@ -300,8 +304,7 @@ class ERPNextPDFRenamer {
   }
 
   reset() {
-    if (this.preview_url) URL.revokeObjectURL(this.preview_url);
-    this.preview_url = null;
+    this.previews = [];
     this.file = null;
     this.values = { si: "", dr: "", po: "" };
     this.input.value = "";
