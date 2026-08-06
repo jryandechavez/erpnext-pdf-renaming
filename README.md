@@ -95,8 +95,13 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 - Exactly two pages
 - Maximum file size of 15 MB
 - Users can correct all extracted values before download
+- The review step shows a scrollable preview of both uploaded pages
 - Download stays disabled until SI, DR, and PO values are present
 
 ## Supported layout
 
-The OCR and extraction rules are tuned for the supplied Tic & Terry two-page Charge Invoice and Delivery Receipt layout. The PO is cross-checked across both pages when OCR finds it twice.
+The OCR and extraction rules are tuned for the supplied Tic & Terry two-page
+Charge Invoice and Delivery Receipt layout. The PO is cross-checked across both
+pages when OCR finds it twice. If the general OCR pass misses the red Charge
+Invoice serial, the server performs a second high-resolution pass over its
+expected top-right document area.

@@ -74,6 +74,12 @@ def process_pdf() -> dict:
             page_texts.append(" ".join(result.txts or ()))
 
         values = extract_values(page_texts)
+        if not values["si"]:
+            for page, text in zip(document, page_texts):
+                if re.search(r"CHARGE.{0,160}?INVOICE", text, re.IGNORECASE):
+                    values["si"] = _read_charge_serial(page, engine)
+                    if values["si"]:
+                        break
         return {"values": values, "complete": all(values.values())}
     except frappe.ValidationError:
         raise
@@ -86,6 +92,40 @@ def process_pdf() -> dict:
         # Drop the only application-level reference to the request body. Frappe
         # never creates a File document and no document bytes are written here.
         content = b""
+
+
+def _read_charge_serial(page, engine) -> str:
+    """Run a high-resolution OCR pass over the top-right serial area."""
+    rect = page.rect
+    clip = pymupdf.Rect(
+        rect.x0 + rect.width * 0.43,
+        rect.y0 + rect.height * 0.16,
+        rect.x0 + rect.width * 0.92,
+        rect.y0 + rect.height * 0.43,
+    )
+    image = page.get_pixmap(dpi=320, colorspace=pymupdf.csRGB, clip=clip, alpha=False)
+    with _engine_lock:
+        result = engine(image.tobytes("png"))
+
+    translations = str.maketrans({"O": "0", "D": "0", "I": "1", "L": "1"})
+    lines = [str(line).upper() for line in (result.txts or ())]
+    for index, line in enumerate(lines):
+        if not re.search(r"\bN[O0°º.]?\b", line):
+            continue
+        context = " ".join(lines[index : index + 3]).translate(translations)
+        candidates = re.findall(r"(?<!\d)\d{5,8}(?!\d)", context)
+        if candidates:
+            return candidates[0][-5:]
+
+    for line in lines:
+        if "POR" in line or re.search(r"P[O0]\s*:", line):
+            continue
+        normalized = line.translate(translations)
+        candidates = re.findall(r"(?<!\d)\d{5,8}(?!\d)", normalized)
+        candidates = [value for value in candidates if len(set(value[-5:])) > 1]
+        if candidates:
+            return candidates[0][-5:]
+    return ""
 
 
 def extract_values(page_texts: list[str]) -> dict[str, str]:
@@ -102,8 +142,12 @@ def extract_values(page_texts: list[str]) -> dict[str, str]:
             # scan (for example OCR may return ``O165532``). These forms use a
             # five-digit SI/DR serial, so keep the rightmost five digits.
             return marked.group(1)[-5:]
-        fallback = re.search(r"(?:^|\s)([0-9]{4,6})(?:\s|$)", nearby)
-        return fallback.group(1) if fallback else ""
+        without_po = re.sub(r"P[O0]R\s*[0-9ODIL]{6,14}", " ", nearby)
+        normalized = without_po.translate(
+            str.maketrans({"O": "0", "D": "0", "I": "1", "L": "1"})
+        )
+        candidates = re.findall(r"(?<!\d)(\d{5,8})(?!\d)", normalized)
+        return candidates[0][-5:] if candidates else ""
 
     def purchase_order(text: str) -> str:
         match = re.search(r"\bP[O0]\s*[:.-]?\s*(P[O0]R\s*[0-9ODIL]{6,14})\b", text)
