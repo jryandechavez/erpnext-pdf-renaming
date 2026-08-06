@@ -6,11 +6,40 @@ A Frappe/ERPNext v15 custom app that adds a **PDF Renamer** Desk page. Users sel
 SI_65532_AND_DR_66584_PO_POR00116530.pdf
 ```
 
+The GitHub repository is named `erpnext-pdf-renaming`, but the Frappe/Python app
+name is `erpnext_pdf_renaming`. Always use the underscore name with
+`install-app`, `build --app`, and `list-apps`.
+
 ## Privacy design
 
 All PDF rendering, OCR, review, and renaming happen in the browser. The app does not create a Frappe `File`, call a PDF-processing server endpoint, or retain document content. Reloading or closing the Desk page clears the selected PDF from memory.
 
 ## Install
+
+### Recommended production installer
+
+Run this as `root` or as the Linux user that owns the Bench. The installer
+switches from `root` to the Bench owner automatically, validates the site,
+uses the safe `--skip-assets` sequence, registers the app before building,
+and can be rerun later to update an existing installation.
+
+```bash
+curl -fsSL \
+  https://raw.githubusercontent.com/jryandechavez/erpnext-pdf-renaming/main/install.sh \
+  -o /tmp/install-erpnext-pdf-renaming.sh
+
+# Review the installer before running it.
+less /tmp/install-erpnext-pdf-renaming.sh
+
+bash /tmp/install-erpnext-pdf-renaming.sh \
+  --site your-site.example \
+  --bench /home/frappe/frappe-bench
+```
+
+The same command updates an existing installation without duplicating the
+`sites/apps.txt` entry or reinstalling the app on the site.
+
+### Manual installation
 
 ```bash
 cd /path/to/frappe-bench

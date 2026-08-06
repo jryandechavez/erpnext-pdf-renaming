@@ -1,4 +1,4 @@
 include README.md
+include install.sh
 include license.txt
 recursive-include erpnext_pdf_renaming *.css *.csv *.html *.ico *.js *.json *.md *.mjs *.png *.py *.svg *.txt *.wasm *.gz
-
