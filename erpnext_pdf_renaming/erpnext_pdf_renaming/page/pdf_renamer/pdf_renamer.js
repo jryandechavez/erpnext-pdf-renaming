@@ -6,7 +6,7 @@ frappe.pages["pdf-renamer"].on_page_load = function (wrapper) {
   });
 
   const stylesheetId = "erpnext-pdf-renamer-styles";
-  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.4.3";
+  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.5.0";
   let link = document.getElementById(stylesheetId);
   if (!link) {
     link = document.createElement("link");
@@ -23,6 +23,8 @@ class ERPNextPDFRenamer {
   constructor(container) {
     this.container = container;
     this.file = null;
+    this.queue = [];
+    this.current_index = -1;
     this.previews = [];
     this.values = { si: "", dr: "", po: "" };
     this.pdfjs = null;
@@ -36,7 +38,7 @@ class ERPNextPDFRenamer {
         <section class="renamer-hero">
           <div class="renamer-eyebrow">PRIVATE PDF TOOL</div>
           <h1>Rename invoices. <em>Keep files private.</em></h1>
-          <p>Upload a two-page PDF, extract the Charge Invoice, Delivery Receipt, and PO numbers, then download it with the correct name.</p>
+          <p>Upload one or more two-page PDFs, review each result, then download them one at a time with the correct names.</p>
         </section>
 
         <section class="renamer-card">
@@ -46,17 +48,25 @@ class ERPNextPDFRenamer {
             <div class="renamer-step" data-step="3"><b>3</b><span>Review & download</span></div>
           </div>
 
+          <div class="renamer-queue hidden" aria-live="polite">
+            <div><strong class="renamer-queue-position"></strong><span class="renamer-queue-file"></span></div>
+            <span class="renamer-queue-counts"></span>
+          </div>
+
           <div class="renamer-view" data-view="upload">
-            <div class="renamer-dropzone" tabindex="0" role="button" aria-label="Choose a two-page PDF">
-              <input type="file" accept="application/pdf,.pdf" hidden>
+            <div class="renamer-dropzone" tabindex="0" role="button" aria-label="Choose one or more two-page PDFs">
+              <input type="file" accept="application/pdf,.pdf" multiple hidden>
               <div class="renamer-file-icon"><span>PDF</span></div>
-              <h2>Drop your two-page PDF here</h2>
-              <p>or choose a file from your computer</p>
-              <button class="btn btn-default renamer-choose" type="button">Choose PDF</button>
-              <small>PDF only · exactly 2 pages · maximum 15 MB</small>
+              <h2>Drop your two-page PDFs here</h2>
+              <p>or choose one or more files from your computer</p>
+              <button class="btn btn-default renamer-choose" type="button">Choose PDFs</button>
+              <small>PDF only · exactly 2 pages each · maximum 15 MB per file</small>
             </div>
             <div class="renamer-alert renamer-error hidden" role="alert"></div>
-            <button class="btn btn-primary renamer-process hidden" type="button">Read document numbers →</button>
+            <div class="renamer-upload-actions">
+              <button class="btn btn-default renamer-skip-upload hidden" type="button">Skip & next</button>
+              <button class="btn btn-primary renamer-process hidden" type="button">Start processing →</button>
+            </div>
           </div>
 
           <div class="renamer-view hidden" data-view="processing" aria-live="polite">
@@ -87,10 +97,20 @@ class ERPNextPDFRenamer {
                 </div>
                 <div class="renamer-filename"><span>NEW FILENAME</span><strong></strong></div>
                 <div class="renamer-actions">
-                  <button class="btn btn-default renamer-reset" type="button">Start over</button>
-                  <button class="btn btn-primary renamer-download" type="button" disabled>Download renamed PDF ↓</button>
+                  <button class="btn btn-default renamer-reset" type="button">Clear queue</button>
+                  <button class="btn btn-default renamer-skip" type="button">Skip & next</button>
+                  <button class="btn btn-primary renamer-download" type="button" disabled>Download & next ↓</button>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div class="renamer-view hidden" data-view="complete">
+            <div class="renamer-complete">
+              <div class="renamer-complete-icon">✓</div>
+              <h2>Batch complete</h2>
+              <p class="renamer-complete-summary"></p>
+              <button class="btn btn-primary renamer-new-batch" type="button">Choose another batch</button>
             </div>
           </div>
         </section>
@@ -116,7 +136,7 @@ class ERPNextPDFRenamer {
     this.dropzone.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") this.input.click();
     });
-    this.input.addEventListener("change", () => this.select_file(this.input.files[0]));
+    this.input.addEventListener("change", () => this.select_files([...this.input.files]));
     ["dragenter", "dragover"].forEach((name) => this.dropzone.addEventListener(name, (event) => {
       event.preventDefault();
       this.dropzone.classList.add("is-dragging");
@@ -125,33 +145,57 @@ class ERPNextPDFRenamer {
       event.preventDefault();
       this.dropzone.classList.remove("is-dragging");
     }));
-    this.dropzone.addEventListener("drop", (event) => this.select_file(event.dataTransfer.files[0]));
+    this.dropzone.addEventListener("drop", (event) => this.select_files([...event.dataTransfer.files]));
     root.querySelector(".renamer-process").addEventListener("click", () => this.process());
+    root.querySelector(".renamer-skip-upload").addEventListener("click", () => this.skip());
     root.querySelector(".renamer-reset").addEventListener("click", () => this.reset());
+    root.querySelector(".renamer-skip").addEventListener("click", () => this.skip());
     root.querySelector(".renamer-download").addEventListener("click", () => this.download());
+    root.querySelector(".renamer-new-batch").addEventListener("click", () => this.reset());
     root.querySelectorAll("[data-field]").forEach((input) => input.addEventListener("input", () => {
       const field = input.dataset.field;
       const cleaned = input.value.toUpperCase().replace(field === "po" ? /[^A-Z0-9]/g : /\D/g, "");
       input.value = cleaned.slice(0, field === "po" ? 24 : 12);
       this.values[field] = input.value;
+      const entry = this.current_entry();
+      if (entry) entry.values = { ...this.values };
       this.refresh_filename();
     }));
   }
 
-  select_file(file) {
+  select_files(files) {
     this.hide_error();
-    if (!file) return;
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) return this.show_error(__("Please choose a PDF file."));
-    if (file.size > 15 * 1024 * 1024) return this.show_error(__("The PDF must be 15 MB or smaller."));
-    this.file = file;
-    this.dropzone.querySelector("h2").textContent = file.name;
-    this.dropzone.querySelector("p").textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · Ready to process`;
-    this.dropzone.querySelector(".renamer-choose").textContent = __("Choose another file");
+    if (!files.length) return;
+    const valid = files.filter((file) => (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) && file.size <= 15 * 1024 * 1024);
+    const rejected = files.length - valid.length;
+    if (!valid.length) return this.show_error(__("Choose PDF files that are 15 MB or smaller."));
+    this.queue = valid.map((file) => ({
+      file,
+      name: file.name,
+      size: file.size,
+      status: "waiting",
+      values: { si: "", dr: "", po: "" },
+      previews: [],
+    }));
+    this.input.value = "";
+    this.current_index = 0;
+    this.load_current();
+    const totalSize = valid.reduce((total, file) => total + file.size, 0);
+    this.dropzone.querySelector("h2").textContent = valid.length === 1 ? valid[0].name : __(`${valid.length} PDFs selected`);
+    this.dropzone.querySelector("p").textContent = `${(totalSize / 1024 / 1024).toFixed(2)} MB total · Ready to process one at a time`;
+    this.dropzone.querySelector(".renamer-choose").textContent = __("Choose another batch");
     this.root.querySelector(".renamer-process").classList.remove("hidden");
+    this.root.querySelector(".renamer-process").textContent = __("Start processing →");
+    this.root.querySelector(".renamer-skip-upload").classList.toggle("hidden", valid.length < 2);
+    if (rejected) this.show_error(__(`${rejected} file(s) were ignored because they were not PDFs or exceeded 15 MB.`));
+    this.update_queue_ui();
   }
 
   async process() {
     if (!this.file) return;
+    const entry = this.current_entry();
+    entry.status = "processing";
+    this.update_queue_ui();
     this.show_view("processing");
     this.set_step(2);
     this.set_progress(15, __("Uploading the PDF temporarily…"));
@@ -173,11 +217,20 @@ class ERPNextPDFRenamer {
       }
       this.values = payload.message.values;
       this.previews = payload.message.previews || [];
+      entry.values = { ...this.values };
+      entry.previews = [...this.previews];
+      entry.status = "review";
+      this.update_queue_ui();
       this.set_progress(100, __("Temporary upload discarded."));
       this.show_review();
     } catch (error) {
+      entry.status = "error";
       this.show_view("upload");
       this.set_step(1);
+      this.root.querySelector(".renamer-process").textContent = __("Retry this PDF →");
+      this.root.querySelector(".renamer-process").classList.remove("hidden");
+      this.root.querySelector(".renamer-skip-upload").classList.remove("hidden");
+      this.update_queue_ui();
       this.show_error(error.message || __("The PDF could not be processed."));
     }
   }
@@ -306,17 +359,92 @@ class ERPNextPDFRenamer {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+    const entry = this.current_entry();
+    entry.status = "downloaded";
+    entry.values = { ...this.values };
+    this.release_entry(entry);
+    this.advance();
+  }
+
+  skip() {
+    const entry = this.current_entry();
+    if (!entry) return;
+    entry.status = "skipped";
+    this.release_entry(entry);
+    this.advance();
+  }
+
+  advance() {
+    const next = this.queue.findIndex((entry, index) => index > this.current_index && entry.status === "waiting");
+    if (next === -1) {
+      this.file = null;
+      this.previews = [];
+      this.values = { si: "", dr: "", po: "" };
+      this.update_queue_ui();
+      this.show_complete();
+      return;
+    }
+    this.current_index = next;
+    this.load_current();
+    this.update_queue_ui();
+    this.process();
+  }
+
+  current_entry() {
+    return this.queue[this.current_index] || null;
+  }
+
+  load_current() {
+    const entry = this.current_entry();
+    if (!entry) return;
+    this.file = entry.file;
+    this.values = { ...entry.values };
+    this.previews = [...entry.previews];
+  }
+
+  release_entry(entry) {
+    entry.file = null;
+    entry.previews = [];
+    this.previews = [];
+    this.root.querySelectorAll("[data-preview]").forEach((image) => image.removeAttribute("src"));
+  }
+
+  update_queue_ui() {
+    const queue = this.root.querySelector(".renamer-queue");
+    queue.classList.toggle("hidden", !this.queue.length);
+    if (!this.queue.length) return;
+    const entry = this.current_entry();
+    const downloaded = this.queue.filter((item) => item.status === "downloaded").length;
+    const skipped = this.queue.filter((item) => item.status === "skipped").length;
+    const remaining = this.queue.length - downloaded - skipped;
+    this.root.querySelector(".renamer-queue-position").textContent = entry
+      ? __(`Document ${this.current_index + 1} of ${this.queue.length}`)
+      : __(`Batch of ${this.queue.length}`);
+    this.root.querySelector(".renamer-queue-file").textContent = entry?.name || "";
+    this.root.querySelector(".renamer-queue-counts").textContent = __(`${downloaded} downloaded · ${skipped} skipped · ${remaining} remaining`);
+  }
+
+  show_complete() {
+    const downloaded = this.queue.filter((entry) => entry.status === "downloaded").length;
+    const skipped = this.queue.filter((entry) => entry.status === "skipped").length;
+    this.root.querySelector(".renamer-complete-summary").textContent = __(`${downloaded} PDF(s) downloaded${skipped ? ` · ${skipped} skipped` : ""}. No files were retained on the server.`);
+    this.show_view("complete");
+    this.set_step(3);
   }
 
   reset() {
     this.previews = [];
     this.file = null;
+    this.queue = [];
+    this.current_index = -1;
     this.values = { si: "", dr: "", po: "" };
     this.input.value = "";
-    this.dropzone.querySelector("h2").textContent = __("Drop your two-page PDF here");
-    this.dropzone.querySelector("p").textContent = __("or choose a file from your computer");
-    this.dropzone.querySelector(".renamer-choose").textContent = __("Choose PDF");
+    this.dropzone.querySelector("h2").textContent = __("Drop your two-page PDFs here");
+    this.dropzone.querySelector("p").textContent = __("or choose one or more files from your computer");
+    this.dropzone.querySelector(".renamer-choose").textContent = __("Choose PDFs");
     this.root.querySelector(".renamer-process").classList.add("hidden");
+    this.root.querySelector(".renamer-skip-upload").classList.add("hidden");
+    this.update_queue_ui();
     this.hide_error();
     this.show_view("upload");
     this.set_step(1);

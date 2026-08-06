@@ -1,6 +1,6 @@
 # ERPNext PDF Renaming
 
-A Frappe/ERPNext v15 custom app that adds a **PDF Renamer** Desk page. Users select a two-page PDF, the browser extracts the Charge Invoice, Delivery Receipt, and PO numbers, and downloads the original PDF with a standardized filename:
+A Frappe/ERPNext v15 custom app that adds a **PDF Renamer** Desk page. Users can select one or more two-page PDFs. The app processes only the current document, lets the user review its Charge Invoice, Delivery Receipt, and PO numbers, downloads the original PDF with a standardized filename, then advances to the next document:
 
 ```text
 SI_65532_AND_DR_66584_PO_POR00116530.pdf
@@ -15,8 +15,9 @@ name is `erpnext_pdf_renaming`. Always use the underscore name with
 The browser sends the selected PDF directly to one authenticated Frappe API
 request. The server holds the request body only while extracting the document
 numbers and returns JSON. The app does not create a Frappe `File`, attachment,
-database record, or permanent PDF copy. The browser keeps the original PDF so it
-can download the same bytes under the reviewed filename.
+database record, or permanent PDF copy. The browser keeps the selected queue in
+memory and sends only one PDF at a time. Each completed file is released from
+browser memory after it is downloaded or skipped.
 
 PDF rendering and OCR use Python dependencies installed automatically with the
 app (`PyMuPDF`, `RapidOCR`, and ONNX Runtime). There are no browser PDF workers,
@@ -93,6 +94,9 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 - Exactly two pages
 - Maximum file size of 15 MB
 - Users can correct all extracted values before download
+- Multiple PDFs can be queued, but OCR always runs one document at a time
+- **Download & next** advances automatically; **Skip & next** continues without downloading
+- Queue progress shows downloaded, skipped, and remaining documents
 - The review step keeps Page 1 on the left and Page 2 on the right in separate,
   independently scrollable preview frames
 - Download stays disabled until SI, DR, and PO values are present
