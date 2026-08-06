@@ -41,7 +41,9 @@ bash /tmp/install-erpnext-pdf-renaming.sh \
 ```
 
 The same command updates an existing installation without duplicating the
-`sites/apps.txt` entry or reinstalling the app on the site.
+`sites/apps.txt` entry or reinstalling the app on the site. It also creates and
+verifies the app's `sites/assets/erpnext_pdf_renaming` link explicitly, avoiding
+the missing-public-assets behavior found in some Frappe v15 Bench releases.
 
 ### Manual installation
 

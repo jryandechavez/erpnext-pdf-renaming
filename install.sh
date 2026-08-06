@@ -106,11 +106,23 @@ awk -v app="$APP_NAME" '
 ' "$APPS_FILE" > "$TEMP_APPS"
 mv "$TEMP_APPS" "$APPS_FILE"
 
+# Bench normally creates this link during asset setup. Create it explicitly as
+# well because some v15 Bench releases calculate the app list before get-app
+# finishes registering a new app, leaving every /assets URL as a 404.
+PUBLIC_PATH="$APP_PATH/$APP_NAME/public"
+ASSET_LINK="$BENCH_PATH/sites/assets/$APP_NAME"
+[[ -d "$PUBLIC_PATH" ]] || { echo "App public directory not found: $PUBLIC_PATH" >&2; exit 1; }
+mkdir -p "$BENCH_PATH/sites/assets"
+ln -sfn "$PUBLIC_PATH" "$ASSET_LINK"
+[[ -f "$ASSET_LINK/vendor/pdf.min.js" ]] || { echo "PDF reader asset was not linked correctly." >&2; exit 1; }
+[[ -f "$ASSET_LINK/vendor/tesseract.min.js" ]] || { echo "OCR asset was not linked correctly." >&2; exit 1; }
+
 echo "[3/7] Installing Python package"
 "$BENCH_PATH/env/bin/python" -m pip install --quiet --upgrade -e "$APP_PATH"
 
 echo "[4/7] Linking and building app assets"
 bench build --app "$APP_NAME"
+[[ -f "$ASSET_LINK/vendor/pdf.min.js" ]] || { echo "PDF reader asset is missing after build." >&2; exit 1; }
 
 echo "[5/7] Installing app on site when needed"
 if ! bench --site "$SITE_NAME" list-apps --format text | grep -qxF "$APP_NAME"; then
