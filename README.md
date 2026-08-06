@@ -14,10 +14,35 @@ All PDF rendering, OCR, review, and renaming happen in the browser. The app does
 
 ```bash
 cd /path/to/frappe-bench
-bench get-app https://github.com/jryandechavez/erpnext-pdf-renaming.git
+# Skip the automatic asset build until Bench has registered the app.
+bench get-app --skip-assets https://github.com/jryandechavez/erpnext-pdf-renaming.git
+
+# Ensure apps.txt ends with a newline and contains the app exactly once.
+printf '\n' >> sites/apps.txt
+grep -qxF erpnext_pdf_renaming sites/apps.txt || \
+  printf '%s\n' erpnext_pdf_renaming >> sites/apps.txt
+
 bench --site your-site.example install-app erpnext_pdf_renaming
 bench --site your-site.example migrate
 bench build --app erpnext_pdf_renaming
+bench --site your-site.example clear-cache
+bench restart
+```
+
+### Recover from an interrupted `get-app`
+
+If `bench get-app` already downloaded and installed the Python package but failed
+during `bench build` with `paths[0] ... Received undefined`, do not run
+`get-app` again. Register the existing checkout and continue:
+
+```bash
+cd /path/to/frappe-bench
+printf '\n' >> sites/apps.txt
+grep -qxF erpnext_pdf_renaming sites/apps.txt || \
+  printf '%s\n' erpnext_pdf_renaming >> sites/apps.txt
+bench build --app erpnext_pdf_renaming
+bench --site your-site.example install-app erpnext_pdf_renaming
+bench --site your-site.example migrate
 bench --site your-site.example clear-cache
 bench restart
 ```
@@ -35,4 +60,3 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 ## Supported layout
 
 The OCR and extraction rules are tuned for the supplied Tic & Terry two-page Charge Invoice and Delivery Receipt layout. The PO is cross-checked across both pages when OCR finds it twice.
-
