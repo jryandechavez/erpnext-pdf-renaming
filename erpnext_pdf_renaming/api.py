@@ -38,6 +38,7 @@ def process_pdf() -> dict:
         frappe.throw(_("The PDF must be 50 MB or smaller."))
 
     document = None
+    pair_document = None
     try:
         document = pymupdf.open(stream=content, filetype="pdf")
         if document.needs_pass:
@@ -64,10 +65,19 @@ def process_pdf() -> dict:
             frappe.throw(_("The requested page pair is outside this PDF."))
         page_start = pair_index * 2
 
+        # Copy the requested pages first, then release the potentially large
+        # source PDF before loading the OCR engine or rendering any images.
+        pair_document = pymupdf.open()
+        pair_document.insert_pdf(document, from_page=page_start, to_page=page_start + 1)
+        pair_bytes = pair_document.tobytes(garbage=3, deflate=True)
+        document.close()
+        document = None
+        content = b""
+
         engine = _get_engine()
         page_texts = []
         previews = []
-        pair_pages = [document[page_start], document[page_start + 1]]
+        pair_pages = [pair_document[0], pair_document[1]]
         for page in pair_pages:
             preview = page.get_pixmap(dpi=110, colorspace=pymupdf.csRGB, alpha=False)
             previews.append(
@@ -104,14 +114,7 @@ def process_pdf() -> dict:
                     values["si"] = _read_charge_serial(page, engine)
                     if values["si"]:
                         break
-        pair_document = pymupdf.open()
-        try:
-            pair_document.insert_pdf(document, from_page=page_start, to_page=page_start + 1)
-            pair_pdf = base64.b64encode(
-                pair_document.tobytes(garbage=3, deflate=True)
-            ).decode("ascii")
-        finally:
-            pair_document.close()
+        pair_pdf = base64.b64encode(pair_bytes).decode("ascii")
 
         return {
             "values": values,
@@ -130,6 +133,8 @@ def process_pdf() -> dict:
     finally:
         if document is not None:
             document.close()
+        if pair_document is not None:
+            pair_document.close()
         # Drop the only application-level reference to the request body. Frappe
         # never creates a File document and no document bytes are written here.
         content = b""
