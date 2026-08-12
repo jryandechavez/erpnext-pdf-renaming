@@ -98,7 +98,8 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 - Consecutive pages are paired: 1–2, 3–4, 5–6, and so on
 - OCR runs on only the current two-page pair
 - **Download & next** downloads that pair and advances automatically
-- **Skip & next** continues without downloading the current pair
+- **Skip & go** defaults to the next pair, or accepts a later pair number such
+  as Pair 10; every pair passed over is counted as skipped
 - Progress shows downloaded, skipped, and remaining pairs
 - The review step keeps Page 1 on the left and Page 2 on the right in separate,
   independently scrollable preview frames

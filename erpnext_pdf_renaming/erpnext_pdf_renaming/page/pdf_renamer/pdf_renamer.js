@@ -6,7 +6,7 @@ frappe.pages["pdf-renamer"].on_page_load = function (wrapper) {
   });
 
   const stylesheetId = "erpnext-pdf-renamer-styles";
-  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.6.2";
+  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.6.4";
   let link = document.getElementById(stylesheetId);
   if (!link) {
     link = document.createElement("link");
@@ -98,7 +98,10 @@ class ERPNextPDFRenamer {
                 <div class="renamer-filename"><span>NEW FILENAME</span><strong></strong></div>
                 <div class="renamer-actions">
                   <button class="btn btn-default renamer-reset" type="button">Clear queue</button>
-                  <button class="btn btn-default renamer-skip" type="button">Skip & next</button>
+                  <label class="renamer-pair-jump">Go to pair
+                    <input class="renamer-target-pair" type="number" min="1" step="1" inputmode="numeric" aria-label="Pair number to process after skipping">
+                  </label>
+                  <button class="btn btn-default renamer-skip" type="button">Skip & go</button>
                   <button class="btn btn-primary renamer-download" type="button" disabled>Download & next ↓</button>
                 </div>
               </div>
@@ -149,7 +152,7 @@ class ERPNextPDFRenamer {
     root.querySelector(".renamer-process").addEventListener("click", () => this.process());
     root.querySelector(".renamer-skip-upload").addEventListener("click", () => this.skip());
     root.querySelector(".renamer-reset").addEventListener("click", () => this.reset());
-    root.querySelector(".renamer-skip").addEventListener("click", () => this.skip());
+    root.querySelector(".renamer-skip").addEventListener("click", () => this.skip_to_pair());
     root.querySelector(".renamer-download").addEventListener("click", () => this.download());
     root.querySelector(".renamer-new-batch").addEventListener("click", () => this.reset());
     root.querySelectorAll("[data-field]").forEach((input) => input.addEventListener("input", () => {
@@ -352,6 +355,10 @@ class ERPNextPDFRenamer {
     this.root.querySelectorAll("[data-page-label]").forEach((label) => {
       label.textContent = __(`Page ${entry.page_numbers[Number(label.dataset.pageLabel)]}`);
     });
+    const target = this.root.querySelector(".renamer-target-pair");
+    target.min = String(Math.min(this.current_index + 2, this.queue.length));
+    target.max = String(this.queue.length);
+    target.value = String(Math.min(this.current_index + 2, this.queue.length));
     Object.entries(this.values).forEach(([field, value]) => {
       const input = this.root.querySelector(`[data-field="${field}"]`);
       input.value = value;
@@ -397,6 +404,31 @@ class ERPNextPDFRenamer {
     entry.status = "skipped";
     this.release_entry(entry);
     this.advance();
+  }
+
+  skip_to_pair() {
+    if (this.current_index === this.queue.length - 1) {
+      this.skip();
+      return;
+    }
+    const target = Number(this.root.querySelector(".renamer-target-pair").value);
+    const minimum = this.current_index + 2;
+    if (!Number.isInteger(target) || target < minimum || target > this.queue.length) {
+      const result = this.root.querySelector(".renamer-result");
+      result.className = "renamer-alert renamer-result is-warning";
+      result.textContent = __(`Enter a pair number from ${minimum} to ${this.queue.length}.`);
+      return;
+    }
+
+    const targetIndex = target - 1;
+    for (let index = this.current_index; index < targetIndex; index += 1) {
+      this.queue[index].status = "skipped";
+      this.release_entry(this.queue[index]);
+    }
+    this.current_index = targetIndex;
+    this.load_current();
+    this.update_queue_ui();
+    this.process();
   }
 
   advance() {
