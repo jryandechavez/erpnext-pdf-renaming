@@ -128,6 +128,7 @@ if ! bench --site "$SITE_NAME" list-apps --format text | grep -qxF "$APP_NAME"; 
   bench --site "$SITE_NAME" install-app "$APP_NAME"
 else
   echo "$APP_NAME is already installed on $SITE_NAME"
+  bench --site "$SITE_NAME" execute erpnext_pdf_renaming.install.ensure_module_def
   bench --site "$SITE_NAME" reload-doc erpnext_pdf_renaming page pdf_renamer
 fi
 

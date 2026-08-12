@@ -1,5 +1,6 @@
 app_name = "erpnext_pdf_renaming"
 app_title = "ERPNext PDF Renaming"
+after_install = "erpnext_pdf_renaming.install.after_install"
 app_publisher = "Joeryan De Chavez"
 app_description = "Temporary-processing invoice PDF renaming page for ERPNext"
 app_email = ""
