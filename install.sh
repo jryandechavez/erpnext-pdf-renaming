@@ -132,6 +132,8 @@ else
   bench --site "$SITE_NAME" reload-doc erpnext_pdf_renaming page pdf_renamer
 fi
 
+bench --site "$SITE_NAME" execute erpnext_pdf_renaming.install.verify_installation
+
 echo "[6/7] Clearing site cache"
 bench --site "$SITE_NAME" clear-cache
 
