@@ -13,12 +13,13 @@ name is `erpnext_pdf_renaming`. Always use the underscore name with
 ## Temporary processing design
 
 The browser sends the selected PDF directly to one authenticated Frappe API
-request. The server holds the request body only while extracting the document
-numbers and returns JSON. The app does not create a Frappe `File`, attachment,
-database record, or permanent PDF copy. The browser keeps the original PDF in
-memory and requests only one page pair at a time. The server returns a temporary
-two-page PDF for the current pair, which is released from browser memory after
-it is downloaded or skipped.
+request. To keep memory bounded for files up to 50 MB, the server streams the
+request into an operating-system temporary file, extracts the requested pair,
+and deletes the source before OCR begins. The app does not create a Frappe
+`File`, attachment, database record, or permanent PDF copy. The browser keeps
+the original PDF in memory and requests only one page pair at a time. The server
+returns a temporary two-page PDF for the current pair, which is released from
+browser memory after it is downloaded or skipped.
 
 PDF rendering and OCR use Python dependencies installed automatically with the
 app (`PyMuPDF`, `RapidOCR`, and ONNX Runtime). There are no browser PDF workers,

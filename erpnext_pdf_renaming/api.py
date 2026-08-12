@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import base64
+import os
 import re
+import tempfile
 from threading import Lock
 
 import frappe
@@ -11,6 +13,7 @@ from rapidocr import RapidOCR
 
 MAX_FILE_SIZE = 50 * 1024 * 1024
 MAX_PAGE_COUNT = 100
+UPLOAD_CHUNK_SIZE = 1024 * 1024
 _engine = None
 _engine_lock = Lock()
 
@@ -31,16 +34,22 @@ def process_pdf() -> dict:
     if not uploaded or not (uploaded.filename or "").lower().endswith(".pdf"):
         frappe.throw(_("Please upload a PDF file."))
 
-    content = uploaded.read(MAX_FILE_SIZE + 1)
-    if not content:
-        frappe.throw(_("The uploaded PDF is empty."))
-    if len(content) > MAX_FILE_SIZE:
-        frappe.throw(_("The PDF must be 50 MB or smaller."))
-
     document = None
     pair_document = None
+    source_path = None
     try:
-        document = pymupdf.open(stream=content, filetype="pdf")
+        source_size = 0
+        with tempfile.NamedTemporaryFile(prefix="pdf-renamer-", suffix=".pdf", delete=False) as source:
+            source_path = source.name
+            while chunk := uploaded.read(UPLOAD_CHUNK_SIZE):
+                source_size += len(chunk)
+                if source_size > MAX_FILE_SIZE:
+                    frappe.throw(_("The PDF must be 50 MB or smaller."))
+                source.write(chunk)
+        if not source_size:
+            frappe.throw(_("The uploaded PDF is empty."))
+
+        document = pymupdf.open(source_path)
         if document.needs_pass:
             frappe.throw(_("Password-protected PDFs are not supported."))
         if document.page_count < 2 or document.page_count % 2:
@@ -72,7 +81,8 @@ def process_pdf() -> dict:
         pair_bytes = pair_document.tobytes(garbage=3, deflate=True)
         document.close()
         document = None
-        content = b""
+        os.unlink(source_path)
+        source_path = None
 
         engine = _get_engine()
         page_texts = []
@@ -135,9 +145,8 @@ def process_pdf() -> dict:
             document.close()
         if pair_document is not None:
             pair_document.close()
-        # Drop the only application-level reference to the request body. Frappe
-        # never creates a File document and no document bytes are written here.
-        content = b""
+        if source_path and os.path.exists(source_path):
+            os.unlink(source_path)
 
 
 def _read_charge_serial(page, engine) -> str:
