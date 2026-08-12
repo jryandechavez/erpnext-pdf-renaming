@@ -93,7 +93,7 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 ## Validation rules
 
 - PDF format only
-- An even number of pages (up to 100)
+- An even number of pages (up to 500)
 - Maximum source PDF size of 100 MB
 - Users can correct all extracted values before download
 - Consecutive pages are paired: 1–2, 3–4, 5–6, and so on

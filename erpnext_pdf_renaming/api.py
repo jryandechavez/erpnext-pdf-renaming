@@ -15,7 +15,7 @@ from frappe import _
 from rapidocr import RapidOCR
 
 MAX_FILE_SIZE = 100 * 1024 * 1024
-MAX_PAGE_COUNT = 100
+MAX_PAGE_COUNT = 500
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 _engine_lock = Lock()
 OCR_LOCK_PATH = "/tmp/erpnext-pdf-renaming-ocr.lock"
