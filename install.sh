@@ -135,16 +135,16 @@ fi
 bench --site "$SITE_NAME" execute erpnext_pdf_renaming.install.verify_installation
 
 echo "[6/8] Configuring large PDF requests"
-# Keep headroom above the app's 50 MB PDF limit for multipart form overhead,
+# Keep headroom above the app's 100 MB PDF limit for multipart form overhead,
 # and allow enough time for OCR on a scanned pair. These values are used when
 # Bench generates its Nginx configuration.
-bench set-config -g max_file_size 62914560
+bench set-config -g max_file_size 115343360
 bench set-config -g http_timeout 300
 bench setup nginx --yes
-# Some Bench v5 templates still hard-code 50m. Multipart metadata makes a
-# 50 MB PDF request slightly larger than 50 MB, so preserve 10 MB of headroom.
+# Multipart metadata makes a 100 MB PDF request slightly larger than 100 MB,
+# so preserve 10 MB of headroom regardless of the Bench template default.
 if [[ -f "$BENCH_PATH/config/nginx.conf" ]]; then
-  sed -i.bak 's/client_max_body_size 50m;/client_max_body_size 60m;/g' "$BENCH_PATH/config/nginx.conf"
+  sed -E -i.bak 's/client_max_body_size [0-9]+m;/client_max_body_size 110m;/g' "$BENCH_PATH/config/nginx.conf"
   rm -f "$BENCH_PATH/config/nginx.conf.bak"
 fi
 
@@ -156,7 +156,7 @@ bench restart
 
 if command -v sudo >/dev/null 2>&1 && sudo -n nginx -t >/dev/null 2>&1; then
   sudo -n systemctl reload nginx
-  echo "Nginx reloaded with the 60 MB request limit and 300-second timeout."
+  echo "Nginx reloaded with the 110 MB request limit and 300-second timeout."
 else
   echo "NOTICE: Nginx was regenerated but could not be reloaded automatically."
   echo "Run as root: nginx -t && systemctl reload nginx"

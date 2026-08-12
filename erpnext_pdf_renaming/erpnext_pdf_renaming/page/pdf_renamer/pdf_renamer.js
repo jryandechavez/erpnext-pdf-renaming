@@ -60,7 +60,7 @@ class ERPNextPDFRenamer {
               <h2>Drop your multi-page PDF here</h2>
               <p>Pages will be processed as 1–2, 3–4, 5–6, and so on</p>
               <button class="btn btn-default renamer-choose" type="button">Choose PDF</button>
-              <small>PDF only · even number of pages · maximum 50 MB</small>
+              <small>PDF only · even number of pages · maximum 100 MB</small>
             </div>
             <div class="renamer-alert renamer-error hidden" role="alert"></div>
             <div class="renamer-upload-actions">
@@ -170,7 +170,7 @@ class ERPNextPDFRenamer {
     this.hide_error();
     if (!file) return;
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) return this.show_error(__("Please choose a PDF file."));
-    if (file.size > 50 * 1024 * 1024) return this.show_error(__("The PDF must be 50 MB or smaller."));
+    if (file.size > 100 * 1024 * 1024) return this.show_error(__("The PDF must be 100 MB or smaller."));
     this.file = file;
     this.queue = [{
       name: __("Pages 1–2"),
@@ -275,7 +275,7 @@ class ERPNextPDFRenamer {
           payload = JSON.parse(request.responseText || "{}");
         } catch (_) {
           const messages = {
-            413: __("The web server rejected this upload as too large (HTTP 413). Set its request limit above 50 MB."),
+            413: __("The web server rejected this upload as too large (HTTP 413). Set its request limit above 100 MB."),
             502: __("ERPNext's application server became unavailable while processing the PDF (HTTP 502)."),
             503: __("ERPNext is temporarily unavailable (HTTP 503)."),
             504: __("The web server timed out while ERPNext was processing the page pair (HTTP 504). Increase the proxy timeout."),

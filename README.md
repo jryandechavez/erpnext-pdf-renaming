@@ -13,7 +13,7 @@ name is `erpnext_pdf_renaming`. Always use the underscore name with
 ## Temporary processing design
 
 The browser sends the selected PDF directly to one authenticated Frappe API
-request. To keep memory bounded for files up to 50 MB, the server streams the
+request. To keep memory bounded for files up to 100 MB, the server streams the
 request into an operating-system temporary file, extracts the requested pair,
 and deletes the source before OCR begins. The app does not create a Frappe
 `File`, attachment, database record, or permanent PDF copy. The browser keeps
@@ -94,7 +94,7 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 
 - PDF format only
 - An even number of pages (up to 100)
-- Maximum source PDF size of 50 MB
+- Maximum source PDF size of 100 MB
 - Users can correct all extracted values before download
 - Consecutive pages are paired: 1–2, 3–4, 5–6, and so on
 - OCR runs on only the current two-page pair

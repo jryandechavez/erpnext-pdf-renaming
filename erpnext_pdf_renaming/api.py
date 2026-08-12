@@ -14,7 +14,7 @@ import pymupdf
 from frappe import _
 from rapidocr import RapidOCR
 
-MAX_FILE_SIZE = 50 * 1024 * 1024
+MAX_FILE_SIZE = 100 * 1024 * 1024
 MAX_PAGE_COUNT = 100
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 _engine_lock = Lock()
@@ -106,7 +106,7 @@ def process_pdf() -> dict:
             while chunk := uploaded.read(UPLOAD_CHUNK_SIZE):
                 source_size += len(chunk)
                 if source_size > MAX_FILE_SIZE:
-                    frappe.throw(_("The PDF must be 50 MB or smaller."))
+                    frappe.throw(_("The PDF must be 100 MB or smaller."))
                 source.write(chunk)
         if not source_size:
             frappe.throw(_("The uploaded PDF is empty."))
