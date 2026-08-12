@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import base64
+import fcntl
+import gc
 import os
 import re
 import tempfile
+from contextlib import contextmanager
 from threading import Lock
 
 import frappe
@@ -14,17 +17,76 @@ from rapidocr import RapidOCR
 MAX_FILE_SIZE = 50 * 1024 * 1024
 MAX_PAGE_COUNT = 100
 UPLOAD_CHUNK_SIZE = 1024 * 1024
-_engine = None
 _engine_lock = Lock()
+OCR_LOCK_PATH = "/tmp/erpnext-pdf-renaming-ocr.lock"
 
 
-def _get_engine():
-    global _engine
-    if _engine is None:
-        with _engine_lock:
-            if _engine is None:
-                _engine = RapidOCR()
-    return _engine
+@contextmanager
+def _single_ocr_worker():
+    """Prevent multiple Gunicorn workers from loading OCR models together."""
+    with open(OCR_LOCK_PATH, "a+", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def _ocr_pair(pair_document) -> tuple[dict[str, str], list[str]]:
+    with _single_ocr_worker():
+        engine = RapidOCR(
+            params={
+                "Global.use_cls": False,
+                "Global.max_side_len": 1600,
+                "EngineConfig.onnxruntime.intra_op_num_threads": 1,
+                "EngineConfig.onnxruntime.inter_op_num_threads": 1,
+                "EngineConfig.onnxruntime.enable_cpu_mem_arena": False,
+            }
+        )
+        try:
+            page_texts = []
+            previews = []
+            pair_pages = [pair_document[0], pair_document[1]]
+            for page in pair_pages:
+                preview = page.get_pixmap(dpi=110, colorspace=pymupdf.csRGB, alpha=False)
+                previews.append(
+                    "data:image/jpeg;base64,"
+                    + base64.b64encode(preview.tobytes("jpeg")).decode("ascii")
+                )
+                selectable = page.get_text("text") or ""
+                if re.search(
+                    r"CHARGE.{0,120}?INVOICE|DELIVERY.{0,120}?RECEIPT",
+                    selectable,
+                    re.IGNORECASE | re.DOTALL,
+                ):
+                    page_texts.append(selectable)
+                    continue
+
+                rect = page.rect
+                clip = pymupdf.Rect(
+                    rect.x0 + rect.width * 0.22,
+                    rect.y0 + rect.height * 0.12,
+                    rect.x1 - rect.width * 0.06,
+                    rect.y0 + rect.height * 0.46,
+                )
+                image = page.get_pixmap(
+                    dpi=180, colorspace=pymupdf.csRGB, clip=clip, alpha=False
+                )
+                with _engine_lock:
+                    result = engine(image.tobytes("png"), use_cls=False)
+                page_texts.append(" ".join(result.txts or ()))
+
+            values = extract_values(page_texts)
+            if not values["si"]:
+                for page, text in zip(pair_pages, page_texts):
+                    if re.search(r"CHARGE.{0,160}?INVOICE", text, re.IGNORECASE):
+                        values["si"] = _read_charge_serial(page, engine)
+                        if values["si"]:
+                            break
+            return values, previews
+        finally:
+            engine = None
+            gc.collect()
 
 
 @frappe.whitelist()
@@ -84,46 +146,7 @@ def process_pdf() -> dict:
         os.unlink(source_path)
         source_path = None
 
-        engine = _get_engine()
-        page_texts = []
-        previews = []
-        pair_pages = [pair_document[0], pair_document[1]]
-        for page in pair_pages:
-            preview = page.get_pixmap(dpi=110, colorspace=pymupdf.csRGB, alpha=False)
-            previews.append(
-                "data:image/jpeg;base64,"
-                + base64.b64encode(preview.tobytes("jpeg")).decode("ascii")
-            )
-            selectable = page.get_text("text") or ""
-            if re.search(
-                r"CHARGE.{0,120}?INVOICE|DELIVERY.{0,120}?RECEIPT",
-                selectable,
-                re.IGNORECASE | re.DOTALL,
-            ):
-                page_texts.append(selectable)
-                continue
-
-            rect = page.rect
-            clip = pymupdf.Rect(
-                rect.x0 + rect.width * 0.22,
-                rect.y0 + rect.height * 0.12,
-                rect.x1 - rect.width * 0.06,
-                rect.y0 + rect.height * 0.46,
-            )
-            image = page.get_pixmap(dpi=180, colorspace=pymupdf.csRGB, clip=clip, alpha=False)
-            # ONNX sessions are reused within each web worker. Serialize calls
-            # to avoid overlapping mutable OCR pipeline state under gevent.
-            with _engine_lock:
-                result = engine(image.tobytes("png"), use_cls=False)
-            page_texts.append(" ".join(result.txts or ()))
-
-        values = extract_values(page_texts)
-        if not values["si"]:
-            for page, text in zip(pair_pages, page_texts):
-                if re.search(r"CHARGE.{0,160}?INVOICE", text, re.IGNORECASE):
-                    values["si"] = _read_charge_serial(page, engine)
-                    if values["si"]:
-                        break
+        values, previews = _ocr_pair(pair_document)
         pair_pdf = base64.b64encode(pair_bytes).decode("ascii")
 
         return {
