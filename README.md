@@ -93,7 +93,7 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 
 - PDF format only
 - An even number of pages (up to 100)
-- Maximum source PDF size of 15 MB
+- Maximum source PDF size of 50 MB
 - Users can correct all extracted values before download
 - Consecutive pages are paired: 1–2, 3–4, 5–6, and so on
 - OCR runs on only the current two-page pair
