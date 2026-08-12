@@ -6,7 +6,7 @@ frappe.pages["pdf-renamer"].on_page_load = function (wrapper) {
   });
 
   const stylesheetId = "erpnext-pdf-renamer-styles";
-  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.6.0";
+  const stylesheetUrl = "/assets/erpnext_pdf_renaming/css/pdf_renamer.css?v=0.6.2";
   let link = document.getElementById(stylesheetId);
   if (!link) {
     link = document.createElement("link");
@@ -264,12 +264,21 @@ class ERPNextPDFRenamer {
         this.set_progress(45, __("Reading the two document headers…"));
       };
       request.onerror = () => reject(new Error(__("The temporary upload could not reach ERPNext.")));
+      request.timeout = 300000;
+      request.ontimeout = () => reject(new Error(__("ERPNext took more than 5 minutes to process this page pair. Check the web-server timeout and try again.")));
       request.onload = () => {
         let payload;
         try {
           payload = JSON.parse(request.responseText || "{}");
         } catch (_) {
-          reject(new Error(__("ERPNext returned an unreadable response.")));
+          const messages = {
+            413: __("The web server rejected this upload as too large (HTTP 413). Set its request limit above 50 MB."),
+            502: __("ERPNext's application server became unavailable while processing the PDF (HTTP 502)."),
+            503: __("ERPNext is temporarily unavailable (HTTP 503)."),
+            504: __("The web server timed out while ERPNext was processing the page pair (HTTP 504). Increase the proxy timeout."),
+          };
+          const contentType = request.getResponseHeader("Content-Type") || "";
+          reject(new Error(messages[request.status] || __(`ERPNext returned HTTP ${request.status || "0"} instead of JSON (${contentType || "unknown content type"}). Check the web-server error log.`)));
           return;
         }
         resolve({ status: request.status, payload });

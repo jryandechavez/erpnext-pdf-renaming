@@ -73,7 +73,7 @@ cd "$BENCH_PATH"
 APP_PATH="$BENCH_PATH/apps/$APP_NAME"
 LEGACY_APP_PATH="$BENCH_PATH/apps/erpnext-pdf-renaming"
 
-echo "[1/7] Preparing $APP_NAME"
+echo "[1/8] Preparing $APP_NAME"
 if [[ ! -e "$APP_PATH" && -d "$LEGACY_APP_PATH/.git" ]]; then
   mv "$LEGACY_APP_PATH" "$APP_PATH"
 fi
@@ -97,7 +97,7 @@ else
   bench get-app --skip-assets --branch "$BRANCH" "$APP_REPOSITORY"
 fi
 
-echo "[2/7] Registering the app with Bench"
+echo "[2/8] Registering the app with Bench"
 APPS_FILE="$BENCH_PATH/sites/apps.txt"
 TEMP_APPS="$(mktemp "$BENCH_PATH/sites/apps.txt.XXXXXX")"
 awk -v app="$APP_NAME" '
@@ -116,14 +116,14 @@ mkdir -p "$BENCH_PATH/sites/assets"
 ln -sfn "$PUBLIC_PATH" "$ASSET_LINK"
 [[ -f "$ASSET_LINK/css/pdf_renamer.css" ]] || { echo "App stylesheet was not linked correctly." >&2; exit 1; }
 
-echo "[3/7] Installing Python package"
+echo "[3/8] Installing Python package"
 "$BENCH_PATH/env/bin/python" -m pip install --quiet --upgrade -e "$APP_PATH"
 
-echo "[4/7] Linking and building app assets"
+echo "[4/8] Linking and building app assets"
 bench build --app "$APP_NAME"
 [[ -f "$ASSET_LINK/css/pdf_renamer.css" ]] || { echo "App stylesheet is missing after build." >&2; exit 1; }
 
-echo "[5/7] Installing app on site when needed"
+echo "[5/8] Installing app on site when needed"
 if ! bench --site "$SITE_NAME" list-apps --format text | grep -qxF "$APP_NAME"; then
   bench --site "$SITE_NAME" install-app "$APP_NAME"
 else
@@ -134,11 +134,33 @@ fi
 
 bench --site "$SITE_NAME" execute erpnext_pdf_renaming.install.verify_installation
 
-echo "[6/7] Clearing site cache"
+echo "[6/8] Configuring large PDF requests"
+# Keep headroom above the app's 50 MB PDF limit for multipart form overhead,
+# and allow enough time for OCR on a scanned pair. These values are used when
+# Bench generates its Nginx configuration.
+bench set-config -g max_file_size 62914560
+bench set-config -g http_timeout 300
+bench setup nginx --yes
+# Some Bench v5 templates still hard-code 50m. Multipart metadata makes a
+# 50 MB PDF request slightly larger than 50 MB, so preserve 10 MB of headroom.
+if [[ -f "$BENCH_PATH/config/nginx.conf" ]]; then
+  sed -i.bak 's/client_max_body_size 50m;/client_max_body_size 60m;/g' "$BENCH_PATH/config/nginx.conf"
+  rm -f "$BENCH_PATH/config/nginx.conf.bak"
+fi
+
+echo "[7/8] Clearing site cache"
 bench --site "$SITE_NAME" clear-cache
 
-echo "[7/7] Restarting Bench"
+echo "[8/8] Restarting Bench"
 bench restart
+
+if command -v sudo >/dev/null 2>&1 && sudo -n nginx -t >/dev/null 2>&1; then
+  sudo -n systemctl reload nginx
+  echo "Nginx reloaded with the 60 MB request limit and 300-second timeout."
+else
+  echo "NOTICE: Nginx was regenerated but could not be reloaded automatically."
+  echo "Run as root: nginx -t && systemctl reload nginx"
+fi
 
 echo
 echo "ERPNext PDF Renaming is ready: /app/pdf-renamer"
