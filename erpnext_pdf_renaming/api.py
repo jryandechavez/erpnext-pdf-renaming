@@ -10,6 +10,7 @@ from frappe import _
 from rapidocr import RapidOCR
 
 MAX_FILE_SIZE = 15 * 1024 * 1024
+MAX_PAGE_COUNT = 100
 _engine = None
 _engine_lock = Lock()
 
@@ -25,7 +26,7 @@ def _get_engine():
 
 @frappe.whitelist()
 def process_pdf() -> dict:
-    """OCR one request-held PDF without creating a Frappe File or disk copy."""
+    """OCR one page pair and return that pair without retaining the source PDF."""
     uploaded = frappe.request.files.get("file")
     if not uploaded or not (uploaded.filename or "").lower().endswith(".pdf"):
         frappe.throw(_("Please upload a PDF file."))
@@ -41,17 +42,33 @@ def process_pdf() -> dict:
         document = pymupdf.open(stream=content, filetype="pdf")
         if document.needs_pass:
             frappe.throw(_("Password-protected PDFs are not supported."))
-        if document.page_count != 2:
+        if document.page_count < 2 or document.page_count % 2:
             frappe.throw(
-                _("This PDF has {0} page(s). Please upload exactly two pages.").format(
+                _("This PDF has {0} page(s). Please upload an even number of pages.").format(
                     document.page_count
                 )
             )
+        if document.page_count > MAX_PAGE_COUNT:
+            frappe.throw(
+                _("This PDF has too many pages. The maximum is {0} pages.").format(
+                    MAX_PAGE_COUNT
+                )
+            )
+
+        try:
+            pair_index = int(frappe.form_dict.get("pair_index") or 0)
+        except (TypeError, ValueError):
+            frappe.throw(_("The requested page pair is invalid."))
+        pair_count = document.page_count // 2
+        if pair_index < 0 or pair_index >= pair_count:
+            frappe.throw(_("The requested page pair is outside this PDF."))
+        page_start = pair_index * 2
 
         engine = _get_engine()
         page_texts = []
         previews = []
-        for page in document:
+        pair_pages = [document[page_start], document[page_start + 1]]
+        for page in pair_pages:
             preview = page.get_pixmap(dpi=110, colorspace=pymupdf.csRGB, alpha=False)
             previews.append(
                 "data:image/jpeg;base64,"
@@ -82,15 +99,28 @@ def process_pdf() -> dict:
 
         values = extract_values(page_texts)
         if not values["si"]:
-            for page, text in zip(document, page_texts):
+            for page, text in zip(pair_pages, page_texts):
                 if re.search(r"CHARGE.{0,160}?INVOICE", text, re.IGNORECASE):
                     values["si"] = _read_charge_serial(page, engine)
                     if values["si"]:
                         break
+        pair_document = pymupdf.open()
+        try:
+            pair_document.insert_pdf(document, from_page=page_start, to_page=page_start + 1)
+            pair_pdf = base64.b64encode(
+                pair_document.tobytes(garbage=3, deflate=True)
+            ).decode("ascii")
+        finally:
+            pair_document.close()
+
         return {
             "values": values,
             "complete": all(values.values()),
             "previews": previews,
+            "pair_pdf": pair_pdf,
+            "pair_index": pair_index,
+            "pair_count": pair_count,
+            "page_numbers": [page_start + 1, page_start + 2],
         }
     except frappe.ValidationError:
         raise

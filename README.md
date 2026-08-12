@@ -1,6 +1,6 @@
 # ERPNext PDF Renaming
 
-A Frappe/ERPNext v15 custom app that adds a **PDF Renamer** Desk page. Users can select one or more two-page PDFs. The app processes only the current document, lets the user review its Charge Invoice, Delivery Receipt, and PO numbers, downloads the original PDF with a standardized filename, then advances to the next document:
+A Frappe/ERPNext v15 custom app that adds a **PDF Renamer** Desk page. Users select one multi-page PDF containing consecutive two-page document pairs. The app processes pages 1–2, 3–4, 5–6, and so on; lets the user review each pair's Charge Invoice, Delivery Receipt, and PO numbers; then downloads each pair as a separate PDF with a standardized filename:
 
 ```text
 SI_65532_AND_DR_66584_PO_POR00116530.pdf
@@ -15,9 +15,10 @@ name is `erpnext_pdf_renaming`. Always use the underscore name with
 The browser sends the selected PDF directly to one authenticated Frappe API
 request. The server holds the request body only while extracting the document
 numbers and returns JSON. The app does not create a Frappe `File`, attachment,
-database record, or permanent PDF copy. The browser keeps the selected queue in
-memory and sends only one PDF at a time. Each completed file is released from
-browser memory after it is downloaded or skipped.
+database record, or permanent PDF copy. The browser keeps the original PDF in
+memory and requests only one page pair at a time. The server returns a temporary
+two-page PDF for the current pair, which is released from browser memory after
+it is downloaded or skipped.
 
 PDF rendering and OCR use Python dependencies installed automatically with the
 app (`PyMuPDF`, `RapidOCR`, and ONNX Runtime). There are no browser PDF workers,
@@ -91,12 +92,14 @@ Open **PDF Renamer** from the ERPNext search bar, or navigate to `/app/pdf-renam
 ## Validation rules
 
 - PDF format only
-- Exactly two pages
-- Maximum file size of 15 MB
+- An even number of pages (up to 100)
+- Maximum source PDF size of 15 MB
 - Users can correct all extracted values before download
-- Multiple PDFs can be queued, but OCR always runs one document at a time
-- **Download & next** advances automatically; **Skip & next** continues without downloading
-- Queue progress shows downloaded, skipped, and remaining documents
+- Consecutive pages are paired: 1–2, 3–4, 5–6, and so on
+- OCR runs on only the current two-page pair
+- **Download & next** downloads that pair and advances automatically
+- **Skip & next** continues without downloading the current pair
+- Progress shows downloaded, skipped, and remaining pairs
 - The review step keeps Page 1 on the left and Page 2 on the right in separate,
   independently scrollable preview frames
 - Download stays disabled until SI, DR, and PO values are present
